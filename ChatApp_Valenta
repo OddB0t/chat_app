@@ -1,0 +1,113 @@
+//Server-Side Code
+//The client connects to server 127.0.0.1 on port 5555 -> these values are RANDOM as we don't have an actual address and port, I used those specifically just for practical reasons.
+
+import socket
+import threading
+
+class Server:
+    def __init__(self, host = '127.0.0.1', port = 5555):
+        self.host = host
+        self.port = port
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((self.host, self.port))
+        self.clients = []
+        self.nicknames = []
+        self.messages = []
+
+    def broadcast(self, message, sender):
+        for client in self.clients:
+            if client != sender:
+                client.send(message)
+
+    def handle(self, client):
+        while True:
+            try:
+                message = client.recv(1024)
+                self.messages.append(message)
+                self.broadcast(message, client)
+            except:
+                index = self.clients.index(client)
+                self.clients.remove(client)
+                client.close()
+                nickname = self.nicknames[index]
+                self.nicknames.remove(nickname)
+                self.broadcast(f'{nickname} left the chat!'.encode('ascii'), client)
+                break
+
+    def receive(self):
+        while True:
+            client, address = self.server.accept()
+            print(f"Connected with {str(address)}")
+
+            client.send('NICK'.encode('ascii'))
+            nickname = client.recv(1024).decode('ascii')
+            self.nicknames.append(nickname)
+            self.clients.append(client)
+
+            print(f"Nickname of the client is {nickname}!")
+            self.broadcast(f"{nickname} joined the chat!".encode('ascii'), client)
+            client.send('Connected to the server!'.encode('ascii'))
+
+            # Send past messages to the newcomer
+            for message in self.messages:
+                client.send(message)
+
+            thread = threading.Thread(target=self.handle, args=(client,))
+            thread.start()
+
+    def start(self):
+        print("Server Started!")
+        self.server.listen()
+        self.receive()
+
+server = Server()
+server.start()
+
+//Client-Side code
+//The client connects to server 127.0.0.1 on port 5000 -> these values are RANDOM as we don't have an actual address and port, I used those specifically just for practical reasons.
+
+import tkinter as tk
+import socket
+import threading
+
+class ChatClient:
+    def __init__(self, host='127.0.0.1', port=5000):
+        self.window = tk.Tk()
+        self.sock = None
+        self.host = host
+        self.port = port
+
+        self.text_area = tk.Text(self.window)
+        self.text_area.pack()
+        self.msg_entry = tk.Entry(self.window)
+        self.msg_entry.bind("<Return>", self.send_message)
+        self.msg_entry.pack()
+
+        self.start_socket()
+
+    def start_socket(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.host, self.port))
+        threading.Thread(target=self.receive_message, daemon=True).start()
+
+    def receive_message(self):
+        while True:
+            try:
+                msg = self.sock.recv(1024).decode('utf-8')
+                self.text_area.insert('end', msg + "\n")
+                self.text_area.see('end')
+            except:
+                pass
+
+    def send_message(self, event=None):
+        msg = self.msg_entry.get()
+        if msg != "":
+            self.sock.send(msg.encode('utf-8'))
+        self.msg_entry.delete(0, 'end')
+
+    def run(self):
+        self.window.mainloop()
+
+if __name__ == "__main__":
+    client = ChatClient()
+    client.run()
