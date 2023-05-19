@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat App</title>
+    <style>
+        #chatbox {
+            height: 500px;
+            width: 300px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+<body>
+    <div id="chatbox">
+        <!-Messages-->
+    </div>
+
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button id="sendButton">Send</button>
+
+    <script>
+        // Replace with actual server address and port
+        var socket = new WebSocket("ws://localhost:5000");
+
+        socket.onmessage = function(event) {
+            var chatbox = document.getElementById('chatbox');
+            var msg = document.createElement('div');
+            msg.textContent = event.data;
+            chatbox.appendChild(msg);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        document.getElementById('sendButton').onclick = function() {
+            var messageInput = document.getElementById('messageInput');
+            var message = messageInput.value;
+            socket.send(message);
+            messageInput.value = '';
+        };
+    </script>
+</body>
+</html>
