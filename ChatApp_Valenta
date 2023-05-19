@@ -3,6 +3,32 @@
 
 import socket
 import threading
+import asyncio
+import websockets
+import json
+
+connected = set()
+history = []
+
+async def server(websocket, path):
+    # Register.
+    connected.add(websocket)
+    try:
+        # Send message history.
+        await websocket.send(json.dumps(history))
+        # Handle messages.
+        async for message in websocket:
+            history.append(message)
+            # Broadcast message to all connected clients.
+            await asyncio.wait([ws.send(message) for ws in connected if ws != websocket])
+    finally:
+        # Unregister.
+        connected.remove(websocket)
+
+start_server = websockets.serve(server, 'localhost', 5555)
+
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()
 
 class Server:
     def __init__(self, host = '127.0.0.1', port = 5555):
